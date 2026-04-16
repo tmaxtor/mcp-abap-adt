@@ -362,6 +362,7 @@ async function main() {
     logger: loggerForTransport,
     tls: config.tls,
     allowDestinationHeader: config.allowDestinationHeader,
+    allowedIps: config.httpAllowedIps,
   });
   activeServer = server;
   await server.start();

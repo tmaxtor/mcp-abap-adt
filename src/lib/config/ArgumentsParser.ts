@@ -37,6 +37,8 @@ export interface ParsedArguments {
   httpAllowedOrigins?: string[];
   /** HTTP allowed hosts */
   httpAllowedHosts?: string[];
+  /** HTTP IP allowlist — only these IPs can connect (empty = allow all) */
+  httpAllowedIps?: string[];
   /** HTTP enable DNS protection */
   httpEnableDnsProtection?: boolean;
   /** SSE port */
@@ -242,6 +244,10 @@ export class ArgumentsParser {
     result.httpAllowedHosts = resolveListOption(
       '--http-allowed-hosts',
       'MCP_HTTP_ALLOWED_HOSTS',
+    );
+    result.httpAllowedIps = resolveListOption(
+      '--http-allowed-ips',
+      'MCP_HTTP_ALLOWED_IPS',
     );
     result.httpEnableDnsProtection = resolveBooleanOption(
       '--http-enable-dns-protection',

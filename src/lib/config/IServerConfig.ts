@@ -77,6 +77,8 @@ export interface IServerConfig {
   postPath?: string;
   /** TLS configuration for HTTPS (cert + key enables HTTPS automatically) */
   tls?: TlsConfig;
+  /** IP allowlist for HTTP transport — only these IPs can connect (empty = allow all) */
+  httpAllowedIps?: string[];
 
   // ============================================================================
   // HANDLER EXPOSITION (v2)

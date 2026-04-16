@@ -138,6 +138,7 @@ export class ServerConfigManager {
               ca: parsed.tlsCa,
             }
           : undefined,
+      httpAllowedIps: parsed.httpAllowedIps,
     };
   }
 
@@ -280,6 +281,11 @@ AUTHENTICATION:
 ${ServerConfigManager.getHandlerSetsDescription()}
 HTTP OPTIONS:
   --http-json-response             Enable JSON response format
+  --http-allowed-ips=<ips>         Comma-separated IP allowlist for HTTP transport
+                                   Only these IPs can connect; all others get 403
+                                   Example: --http-allowed-ips=192.168.80.150
+                                   Multiple: --http-allowed-ips=192.168.80.150,10.0.0.5
+                                   Env var: MCP_HTTP_ALLOWED_IPS
 
 TLS/HTTPS:
   --tls-cert=<path>                Path to TLS certificate file (PEM)

@@ -64,6 +64,13 @@ export interface StreamableHttpServerOptions {
    * @default false
    */
   allowDestinationHeader?: boolean;
+  /**
+   * IP allowlist — only requests from these IPs are accepted.
+   * Supports plain IPv4 (e.g. "192.168.80.150") and IPv4-mapped IPv6
+   * ("::ffff:192.168.80.150") automatically.
+   * When empty or undefined, all IPs are allowed.
+   */
+  allowedIps?: string[];
 }
 
 /**
@@ -86,6 +93,8 @@ export class StreamableHttpServer extends BaseMcpServer {
   private standaloneServer?: HttpServer | HttpsServer;
   private readonly tls?: TlsConfig;
   private readonly allowDestinationHeader: boolean;
+  /** Normalized IP allowlist (plain IPv4 strings). Empty = allow all. */
+  private readonly allowedIps: Set<string>;
   /** Per-destination lock to serialize token acquisition (prevents concurrent OAuth flows) */
   private readonly authLocks = new Map<string, Promise<void>>();
 
@@ -108,8 +117,28 @@ export class StreamableHttpServer extends BaseMcpServer {
     this.externalApp = opts?.app;
     this.tls = opts?.tls;
     this.allowDestinationHeader = opts?.allowDestinationHeader ?? false;
+    this.allowedIps = new Set(opts?.allowedIps ?? []);
     // Register handlers once for shared MCP server
     this.registerHandlers(this.handlersRegistry);
+  }
+
+  /**
+   * Normalize a remote address to plain IPv4.
+   * Node.js reports IPv4-mapped IPv6 as "::ffff:x.x.x.x" when the server
+   * listens on 0.0.0.0; strip the prefix so comparisons work uniformly.
+   */
+  private static normalizeIp(raw: string | undefined): string {
+    if (!raw) return '';
+    return raw.startsWith('::ffff:') ? raw.slice(7) : raw;
+  }
+
+  /**
+   * Returns true when the request IP is in the allowlist, or the allowlist is empty.
+   */
+  private isIpAllowed(req: Request): boolean {
+    if (this.allowedIps.size === 0) return true;
+    const ip = StreamableHttpServer.normalizeIp(req.socket.remoteAddress);
+    return this.allowedIps.has(ip);
   }
 
   /**
@@ -121,6 +150,15 @@ export class StreamableHttpServer extends BaseMcpServer {
     res: Response,
   ) => Promise<void> {
     return async (req: Request, res: Response) => {
+      if (!this.isIpAllowed(req)) {
+        const ip = StreamableHttpServer.normalizeIp(req.socket.remoteAddress);
+        console.error(
+          `[StreamableHttpServer] Blocked request from ${ip} (not in allowlist)`,
+        );
+        res.status(403).send('Forbidden');
+        return;
+      }
+
       const clientId = `${req.socket.remoteAddress}:${req.socket.remotePort}`;
       const mcpMethod = req.body?.method as string | undefined;
       const mcpId = req.body?.id;
@@ -288,6 +326,11 @@ export class StreamableHttpServer extends BaseMcpServer {
     if (this.defaultDestination) {
       console.error(
         `[StreamableHttpServer] Default destination: ${this.defaultDestination}`,
+      );
+    }
+    if (this.allowedIps.size > 0) {
+      console.error(
+        `[StreamableHttpServer] IP allowlist active: ${[...this.allowedIps].join(', ')}`,
       );
     }
   }
